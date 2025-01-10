@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Address Bar + CORS Proxy + Iframe Sync</title>
+  <style>
+    /* Basic reset */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    /* Body setup */
+    body {
+      font-family: "Segoe UI", "Roboto", sans-serif;
+      background-color: #eeeeee;
+    }
+
+    /* Address bar container: fixed at top, full width */
+    #address-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      height: 28px;
+      background-color: #f1f3f4;
+      padding: 0 8px;
+      box-shadow: 0 0 3px rgba(0, 0, 0, 0.2);
+      white-space: pre;
+      /* Keep single line by default for container */
+    }
+
+    /* "Selected"/focus style (optional) */
+    #address-bar.-selected {
+      background-color: #ffffff;
+      box-shadow: 0 0 0 1px #b3cefb, inset 0 0 0 1px #b3cefb;
+    }
+
+    /* Address bar buttons (lock, bookmark, etc.) */
+    .address-bar-button {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: center;
+      height: 24px;
+      min-width: 32px;
+      padding: 0 10px;
+      margin: 0 2px;
+      border-radius: 20px;
+      font-size: 14px;
+      transition: background-color 0.25s;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .address-bar-button:hover {
+      background-color: #d6d8da;
+    }
+
+    .address-bar-button:active {
+      background-color: #c9cbcd;
+    }
+
+    /* Hide items by default if needed */
+    .hide {
+      display: none;
+    }
+
+    /* Icons within address bar buttons */
+    .address-bar-button svg path,
+    .address-bar-button img {
+      fill: #5f6368;
+    }
+
+    .address-bar-button svg.favourite path {
+      fill: #4285f4;
+    }
+
+    /* 'special' text (like certificate info) */
+    .special {
+      margin-left: 10px;
+      white-space: nowrap;
+      user-select: none;
+      position: relative;
+    }
+
+    .special:before {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      right: -10px;
+      width: 1px;
+      background-color: #9d9e9f;
+      content: "";
+      transition: 0.25s;
+    }
+
+    .address-bar-button:hover .special:before {
+      opacity: 0;
+    }
+
+    /* The text portion in the address bar (editable, single line, no outline) */
+    #address {
+      flex-grow: 1;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      white-space: nowrap;
+      /* Keep it single-line */
+      overflow: hidden;
+      outline: none;
+      /* Remove any focus outline */
+      border: none;
+      /* No border if a browser tries to insert one */
+    }
+
+    #address[contenteditable="true"] {
+      color: inherit;
+      /* Inherit text color */
+    }
+
+    #address[contenteditable="true"]:focus {
+      outline: none;
+      /* Ensure no outline on focus */
+    }
+
+    /* Make room for the address bar up top by adding padding */
+    main {
+      position: relative;
+      top: 28px;
+      /* same as bar height so it sits below */
+      width: 100%;
+      height: calc(100vh - 28px);
+      overflow: hidden;
+      /* optional, keeps clean scroll inside the iframe if desired */
+    }
+
+    /* Ensure iframe takes the full available space under the bar */
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- The address bar at the top -->
+  <div id="address-bar" class="-selected">
+    <!-- Lock/Info icon area -->
+    <div id="info" class="address-bar-button -show-special">
+      <svg viewBox="0 0 16 16" class="https" width="12" height="12">
+        <path
+          d="M12.6,5.3h-0.8V3.8C11.8,1.7,10.1,0,8,0S4.2,1.7,4.2,3.8v1.5H3.4C2.6,5.3,1.9,6,1.9,6.9v7.6c0,0.8,0.7,1.5,1.5,1.5h9.1
+          c0.8,0,1.5-0.7,1.5-1.5V6.9C14.1,6,13.4,5.3,12.6,5.3z M10.4,5.3H5.6V3.8c0-1.3,1.1-2.4,2.4-2.4s2.4,1.1,2.4,2.4V5.3z" />
+      </svg>
+      <svg viewBox="0 0 16 16" class="error hide" width="14" height="14">
+        <path d="M7.2,10.4h1.6V12H7.2V10.4z M7.2,4h1.6v4.8H7.2V4z M8,0C3.6,0,0,3.6,0,8s3.6,8,8,8c4.4,0,8-3.6,8-8S12.4,0,8,0z M8,14.4
+          c-3.5,0-6.4-2.9-6.4-6.4S4.5,1.6,8,1.6s6.4,2.9,6.4,6.4S11.5,14.4,8,14.4z" />
+      </svg>
+      <!-- Favicon icon hidden by default -->
+      <img src="https://duckduckgo.com/favicon.ico" alt="" class="favicon hide" width="16" height="16" />
+      <!-- Certificate info hidden by default -->
+      <div class="special hide">Duck Duck Go, Inc. [US]</div>
+    </div>
+
+    <!-- Address text (editable, single line) -->
+    <div id="address" contenteditable="true">
+      https://example.com/
+    </div>
+
+    <!-- Bookmark (favorite) icon area -->
+    <div id="bookmark" class="address-bar-button">
+      <svg viewBox="0 0 16 16" class="not-favourite hide" width="16" height="16">
+        <path d="M16,5.8l-5.8-0.5L8,0L5.8,5.3L0,5.8l4.4,3.8l-1.3,5.6l4.9-3l4.9,3l-1.3-5.6L16,5.8z M8,10.7l-3,1.8l0.8-3.4L3.1,6.8l3.5-0.3
+          L8,3.3l1.4,3.2l3.5,0.3l-2.7,2.3l0.8,3.4L8,10.7z" />
+      </svg>
+      <svg viewBox="0 0 16 16" class="favourite" width="16" height="16">
+        <path d="M8,12.2l4.9,3l-1.3-5.6L16,5.8l-5.8-0.5L8,0L5.8,5.3L0,5.8l4.4,3.8l-1.3,5.6L8,12.2z" />
+      </svg>
+    </div>
+  </div>
+
+  <!-- Main area with iframe -->
+  <main>
+    <!-- We'll prepend the user-entered URL with https://corsproxy.io? -->
+      <iframe is="x-frame-bypass" src="https://corsproxy.io?https://example.com/" id="iframe-page"></iframe>
+  </main>
+  
+  <!-- Load external JS -->
+  <script src="script.js"></script>
+  <script src="https://unpkg.com/@ungap/custom-elements-builtin"></script>
+  <script type="module" src="x-frame-bypass.js"></script>
+</body>
+
+</html>
