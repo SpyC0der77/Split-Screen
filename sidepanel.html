@@ -188,14 +188,13 @@
 
   <!-- Main area with iframe -->
   <main>
-    <!-- We'll prepend the user-entered URL with https://corsproxy.io? -->
-      <iframe is="x-frame-bypass" src="https://corsproxy.io?https://example.com/" id="iframe-page"></iframe>
+      <iframe is="x-frame-bypass" src="https://example.com/" id="iframe-page"></iframe>
   </main>
   
   <!-- Load external JS -->
   <script src="script.js"></script>
-  <script src="https://unpkg.com/@ungap/custom-elements-builtin"></script>
-  <script type="module" src="x-frame-bypass.js"></script>
+  <script src="lib/custom-elements.js"></script>
+  <script type="module" src="lib/x-frame-bypass.js"></script>
 </body>
 
 </html>
